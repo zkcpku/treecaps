@@ -1,3 +1,4 @@
+from pdb import Pdb
 from tensorflow import saved_model
 from tensorflow.python.saved_model import tag_constants
 from tensorflow.python.saved_model.signature_def_utils_impl import predict_signature_def
@@ -60,7 +61,7 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
     
     random.shuffle(train_trees)
     
-    nodes_node, children_node, codecaps_node = network.init_net_treecaps(
+    nodes_node,nodes_node_types, children_node, codecaps_node = network.init_net_treecaps(
         50, embedding_lookup_lens, len(labels))
 
     # print(nodes_node.get_shape())
@@ -101,19 +102,21 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
         for train_step, train_batch in enumerate(sampling.batch_samples(
             sampling.gen_samples(train_trees, labels), batch_size
         )):
-            nodes, children, batch_labels = train_batch
-            print("debug...")
+            nodes,node_types, children, batch_labels = train_batch
+            # print("debug...")
+            # import pdb; pdb.set_trace()
             # print(nodes)
             # print(children)
-            print(batch_labels)
+            # print(batch_labels)
             # step = (epoch - 1) * num_batches + train_step * batch_size
 
             if not nodes:
                 continue
-            _, err, out, capsule_out = sess.run(
-                [train_point, loss_node, out_node, codecaps_node],
+            _, err, out  = sess.run(
+                [train_point, loss_node, out_node],
                 feed_dict={
                     nodes_node: nodes,
+                    nodes_node_types: node_types,
                     children_node: children,
                     labels_node: batch_labels
                 }
@@ -124,12 +127,11 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
             # print(out)
             # print(out.shape) # (1,250)
          
-            print("Epoch : ", str(epoch), "Step : ", train_step, "Loss : ", err, "Max Acc: ",max_acc)
+            # print("Epoch : ", str(epoch), "Step : ", train_step, "Loss : ", err, "Max Acc: ",max_acc)
 
 
             if train_step % 1000 == 0 and train_step > 0:
-                # print("Epoch : ", str(epoch), "Step : ", train_step,
-                    #   "Loss : ", err, "Max Acc: ", max_acc)
+                print("Epoch : ", str(epoch), "Step : ", train_step, "Loss : ", err, "Max Acc: ",max_acc)
                 correct_labels = []
                 predictions = []
                 # logits = []
@@ -137,11 +139,12 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
                     sampling.gen_samples(val_trees, labels), batch_size
                 ):
                     # print("---------------")
-                    nodes, children, batch_labels = test_batch
+                    nodes,node_types, children, batch_labels = test_batch
                     # print(batch_labels)
                     output = sess.run([out_node],
                         feed_dict={
                             nodes_node: nodes,
+                            nodes_node_types: node_types,
                             children_node: children
                         }
                     )
@@ -154,8 +157,8 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
                     predictions.extend(batch_predictions)
                     # logits.append(output)
 
-                    print(batch_correct_labels) # 正确的
-                    print(batch_predictions) # 少了batchsize倍
+                    # print(batch_correct_labels) # 正确的
+                    # print(batch_predictions) # 少了batchsize倍
 
                 acc = accuracy_score(correct_labels, predictions)
                 if (acc>max_acc):
@@ -229,7 +232,7 @@ def main(opt):
     print("Loading node type....")
     # with open(opt.node_type_lookup_path, 'rb') as fh:
     #     node_type_lookup = pickle.load(fh,encoding='latin1')
-    embedding_lookup_lens = (115, 107)
+    embedding_lookup_lens = myconfig.embedding_lookup_lens
        
     labels = [str(i) for i in range(1, opt.n_classes+1)]
 

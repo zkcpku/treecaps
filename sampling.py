@@ -15,6 +15,7 @@ def gen_samples(trees, labels):
     for tree in trees:
     
         nodes = []
+        node_types = []
         children = []
         label = label_lookup[tree['label']]
 
@@ -33,39 +34,43 @@ def gen_samples(trees, labels):
             n = str(node['node'])
             # print(n)
             nodes.append(int(n))
+            n_t = str(node['type'])
+            node_types.append(int(n_t))
 
-    
-        yield (nodes, children, label)
-    
+        yield (nodes, node_types, children, label)
+
 
 def batch_samples(gen, batch_size):
     """Batch samples from a generator"""
-    nodes, children, labels = [], [], []
+    nodes, node_types, children, labels = [], [], [],[]
     samples = 0
-    for n, c, l in gen:
+    for n,n_t, c, l in gen:
         nodes.append(n)
+        node_types.append(n_t)
         children.append(c)
         labels.append(l)
         samples += 1
         if samples >= batch_size:
-            yield _pad_batch(nodes, children, labels)
-            nodes, children, labels = [], [], []
+            yield _pad_batch(nodes,node_types, children, labels)
+            nodes,node_types, children, labels = [],[], [], []
             samples = 0
 
-def _pad_batch(nodes, children, labels):
+def _pad_batch(nodes, node_types,children, labels):
     if not nodes:
-        return [], [], []
+        return [], [], [],[]
     max_nodes = max([len(x) for x in nodes])
+    max_node_types = max([len(x) for x in node_types])
     max_children = max([len(x) for x in children])
     child_len = max([len(c) for n in children for c in n])
 
     nodes = [n + [0] * (max_nodes - len(n)) for n in nodes]
+    node_types = [n_t + [0] * (max_node_types - len(n_t)) for n_t in node_types]
     # pad batches so that every batch has the same number of nodes
     children = [n + ([[]] * (max_children - len(n))) for n in children]
     # pad every child sample so every node has the same number of children
     children = [[c + [0] * (child_len - len(c)) for c in sample] for sample in children]
 
-    return nodes, children, labels
+    return nodes,node_types, children, labels
 
 
 def _onehot(i, total):

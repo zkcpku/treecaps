@@ -88,13 +88,19 @@ def init_net_treecaps(feature_size, embedding_lookup_lens, label_size):
 
     with tf.name_scope('inputs'):
         nodes = tf.placeholder(tf.int32, shape=(None, None), name='tree')
+        node_types = tf.placeholder(tf.int32, shape=(None, None), name='tree_types')
         children = tf.placeholder(tf.int32, shape=(None, None, None), name='children')
 
     with tf.name_scope('network'):  
         """The Primary Variable Capsule Layer."""
 
-        node_embeddings_lookup = tf.Variable(tf.contrib.layers.xavier_initializer()([embedding_lookup_lens[0], feature_size]), name='node_type_embeddings')
-        node_embeddings = compute_parent_node_types_tensor(nodes, node_embeddings_lookup)
+        node_embeddings_lookup = tf.Variable(tf.contrib.layers.xavier_initializer()([embedding_lookup_lens[0], int(feature_size/2)]), name='node_type_embeddings')
+        node_type_embeddings_lookup = tf.Variable(tf.contrib.layers.xavier_initializer()([embedding_lookup_lens[1], feature_size - int(feature_size/2)]), name='node_n_type_embeddings')
+        
+        node_token_embeddings = compute_parent_node_types_tensor(nodes, node_embeddings_lookup)
+        node_type_embeddings = compute_parent_node_types_tensor(node_types, node_type_embeddings_lookup)
+
+        node_embeddings = tf.concat([node_token_embeddings, node_type_embeddings], axis=2)
 
         primary_variable_caps = primary_variable_capsule_layer(num_conv, output_size, node_embeddings, children, feature_size, caps1_num_dims)
         
@@ -112,7 +118,7 @@ def init_net_treecaps(feature_size, embedding_lookup_lens, label_size):
         v_length = tf.sqrt(reduce_sum(tf.square(codeCaps),axis=2, keepdims=True) + 1e-9)
         out = tf.reshape(v_length,(-1,label_size))
 
-    return nodes, children, out
+    return nodes, node_types, children, out
 
 
 def compute_parent_node_types_tensor(nodes, node_embeddings_lookup):
