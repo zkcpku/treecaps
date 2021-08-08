@@ -10,6 +10,28 @@ import random
 import pickle
 import csv
 
+class CodeNetData():
+    def __init__(self, path, train_test_val, n_classes):
+        self.path = path
+        self.train_test_val = train_test_val
+        self.n_classes = n_classes
+        cached_path = 'cached'
+        if train_test_val == 0:
+           saved_input_filename = "%s/train.pkl" % (path)
+        if train_test_val == 1:
+           saved_input_filename = "%s/test.pkl" % (path)
+        if train_test_val == 2:
+           saved_input_filename = "%s/dev.pkl" % (path)
+
+        with open(saved_input_filename, 'rb') as file_handler:
+            trees, labels = pickle.load(file_handler)
+        
+        print("Number of all data : " + str(len(trees)))
+      
+        self.trees = trees
+        self.labels = labels
+
+
 class MonoLanguageProgramData():
    
     def __init__(self, path, train_test_val, n_classes):

@@ -6,10 +6,10 @@
 ###################################################
 
 ## Keras neural-network library ##
-keras
+keras==2.3.1
 
 ## Tensorflow neural-network library ##
-tensorflow==1.15.4
+tensorflow_gpu==1.15.4
 
 ## MSGPack ##
 msgpack
@@ -21,7 +21,7 @@ numpy
 progressbar2
 
 ## RAdam Optimizer ##
-keras-rectified-adam
+keras-rectified-adam==0.11.0
 
 ## Scikit-Learn ##
 scikit-learn

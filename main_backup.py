@@ -12,37 +12,30 @@ import sys
 import random
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 from data_loader import load_program_data
-from data_loader import MonoLanguageProgramData,CodeNetData
+from data_loader import MonoLanguageProgramData
 import argparse
 import random
 import shutil
 import progressbar
 from keras_radam.training import RAdamOptimizer
 
-from config import *
-
 parser = argparse.ArgumentParser()
-parser.add_argument('--train_batch_size', type=int, default=myconfig.batchsize, help='train batch size, always 1')
-parser.add_argument('--test_batch_size', type=int,
-                    default=myconfig.batchsize, help='test batch size, always 1')
+parser.add_argument('--train_batch_size', type=int, default=1, help='train batch size, always 1')
+parser.add_argument('--test_batch_size', type=int, default=1, help='test batch size, always 1')
 parser.add_argument('--niter', type=int, default=25, help='number of epochs to train for')
-parser.add_argument('--lr', type=float, default=myconfig.lr, help='learning rate')
+parser.add_argument('--lr', type=float, default=0.001, help='learning rate')
 parser.add_argument('--verbal', type=bool, default=True, help='print training info or not')
-parser.add_argument('--n_classes', type=int,
-                    default=myconfig.n_classes, help='manual seed')
-parser.add_argument('--train_directory',
-                    default=myconfig.datapath, help='train program data')
-parser.add_argument('--test_directory',
-                    default=myconfig.datapath, help='test program data')
-parser.add_argument('--model_path', default=myconfig.modelpath,
-                    help='path to save the model')
+parser.add_argument('--n_classes', type=int, default=10, help='manual seed')
+parser.add_argument('--train_directory', default="OJ_data/train", help='train program data') 
+parser.add_argument('--test_directory', default="OJ_data/test", help='test program data')
+parser.add_argument('--model_path', default="model/batch_1", help='path to save the model')
 parser.add_argument('--training', action="store_true",help='is training')
 parser.add_argument('--testing', action="store_true",help='is testing')
 parser.add_argument('--training_percentage', type=float, default=1.0 ,help='percentage of data use for training')
 parser.add_argument('--log_path', default="" ,help='log path for tensorboard')
 parser.add_argument('--epoch', type=int, default=0, help='epoch to test')
 parser.add_argument('--node_type_lookup_path', default="node_type/node_type_lookup.pkl")
-parser.add_argument('--cuda', default=myconfig.cuda,type=str, help='enables cuda')
+parser.add_argument('--cuda', default="0",type=str, help='enables cuda')
 
 opt = parser.parse_args()
 
@@ -52,7 +45,7 @@ if not os.path.isdir("cached"):
     os.mkdir("cached")
 
 
-def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
+def train_model(train_trees, val_trees, labels, embedding_lookup, opt):
     max_acc = 0.0
     logdir = opt.model_path
     batch_size = opt.train_batch_size
@@ -60,12 +53,7 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
     
     random.shuffle(train_trees)
     
-    nodes_node, children_node, codecaps_node = network.init_net_treecaps(
-        50, embedding_lookup_lens, len(labels))
-
-    # print(nodes_node.get_shape())
-    # print(children_node.get_shape())
-    # print(codecaps_node.get_shape()) # (1,250)
+    nodes_node, children_node, codecaps_node = network.init_net_treecaps(50, embedding_lookup, len(labels))
 
     codecaps_node = tf.identity(codecaps_node, name="codecaps_node")
 
@@ -102,43 +90,32 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
             sampling.gen_samples(train_trees, labels), batch_size
         )):
             nodes, children, batch_labels = train_batch
-            print("debug...")
-            # print(nodes)
-            # print(children)
-            print(batch_labels)
             # step = (epoch - 1) * num_batches + train_step * batch_size
 
             if not nodes:
                 continue
-            _, err, out, capsule_out = sess.run(
-                [train_point, loss_node, out_node, codecaps_node],
+            _, err, out = sess.run(
+                [train_point, loss_node, out_node],
                 feed_dict={
                     nodes_node: nodes,
                     children_node: children,
                     labels_node: batch_labels
                 }
             )
-            # print(capsule_out)
-            # print(_.shape)
-            # print(err.shape) # ()
-            # print(out)
-            # print(out.shape) # (1,250)
          
             print("Epoch : ", str(epoch), "Step : ", train_step, "Loss : ", err, "Max Acc: ",max_acc)
 
 
             if train_step % 1000 == 0 and train_step > 0:
-                # print("Epoch : ", str(epoch), "Step : ", train_step,
-                    #   "Loss : ", err, "Max Acc: ", max_acc)
                 correct_labels = []
                 predictions = []
                 # logits = []
                 for test_batch in sampling.batch_samples(
                     sampling.gen_samples(val_trees, labels), batch_size
                 ):
-                    # print("---------------")
+                    print("---------------")
                     nodes, children, batch_labels = test_batch
-                    # print(batch_labels)
+                    print(batch_labels)
                     output = sess.run([out_node],
                         feed_dict={
                             nodes_node: nodes,
@@ -147,15 +124,13 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
                     )
 
                     batch_correct_labels = np.argmax(batch_labels, axis=1)
-                    # print(batch_labels)
-                    # print(output)
                     batch_predictions = np.argmax(output[0], axis=1)
                     correct_labels.extend(batch_correct_labels)
                     predictions.extend(batch_predictions)
                     # logits.append(output)
 
-                    print(batch_correct_labels) # 正确的
-                    print(batch_predictions) # 少了batchsize倍
+                    print(batch_correct_labels)
+                    print(batch_predictions)
 
                 acc = accuracy_score(correct_labels, predictions)
                 if (acc>max_acc):
@@ -227,21 +202,20 @@ def train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt):
 def main(opt):
     
     print("Loading node type....")
-    # with open(opt.node_type_lookup_path, 'rb') as fh:
-    #     node_type_lookup = pickle.load(fh,encoding='latin1')
-    embedding_lookup_lens = (115, 107)
+    with open(opt.node_type_lookup_path, 'rb') as fh:
+        node_type_lookup = pickle.load(fh,encoding='latin1')
        
     labels = [str(i) for i in range(1, opt.n_classes+1)]
 
     if opt.training:
         print("Loading train trees...")
-        train_data_loader = CodeNetData(opt.train_directory, 0, opt.n_classes)
+        train_data_loader = MonoLanguageProgramData(opt.train_directory, 0, opt.n_classes)
         train_trees, _ = train_data_loader.trees, train_data_loader.labels
 
-        val_data_loader = CodeNetData(opt.test_directory, 2, opt.n_classes)
+        val_data_loader = MonoLanguageProgramData(opt.test_directory, 2, opt.n_classes)
         val_trees, _ = val_data_loader.trees, val_data_loader.labels
 
-        train_model(train_trees, val_trees, labels, embedding_lookup_lens, opt)
+        train_model(train_trees, val_trees, labels, node_type_lookup , opt) 
 
     # if opt.testing:
     #     print("Loading test trees...")

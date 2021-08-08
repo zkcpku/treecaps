@@ -4,9 +4,10 @@ from utils import reduce_sum
 from utils import softmax
 from utils import get_shape
 import numpy as np
+from config import *
 
 stddev = 0.01
-batch_size = 1
+batch_size = myconfig.batchsize
 iter_routing = 3
 
 def squash(vector):
@@ -15,7 +16,7 @@ def squash(vector):
     vec_squashed = scalar_factor * vector  # element-wise
     return(vec_squashed)
 
-def dynamic_routing(shape, input, num_outputs=10, num_dims=16):
+def dynamic_routing(shape, input, num_outputs=250, num_dims=16):
     """The Dynamic Routing Algorithm proposed by Sabour et al."""
     
     input_shape = shape
@@ -74,7 +75,7 @@ def vts_routing(input, top_a, top_b, num_outputs, num_dims):
     v_J = tf.reshape(v_J,(1, num_outputs, num_dims, 1))
     return squash(v_J)
 
-def init_net_treecaps(feature_size, embedding_lookup, label_size):
+def init_net_treecaps(feature_size, embedding_lookup_lens, label_size):
     """Initialize an empty TreeCaps network."""
     top_a = 20
     top_b = 25
@@ -92,7 +93,7 @@ def init_net_treecaps(feature_size, embedding_lookup, label_size):
     with tf.name_scope('network'):  
         """The Primary Variable Capsule Layer."""
 
-        node_embeddings_lookup = tf.Variable(tf.contrib.layers.xavier_initializer()([len(embedding_lookup.keys()), feature_size]), name='node_type_embeddings')
+        node_embeddings_lookup = tf.Variable(tf.contrib.layers.xavier_initializer()([embedding_lookup_lens[0], feature_size]), name='node_type_embeddings')
         node_embeddings = compute_parent_node_types_tensor(nodes, node_embeddings_lookup)
 
         primary_variable_caps = primary_variable_capsule_layer(num_conv, output_size, node_embeddings, children, feature_size, caps1_num_dims)
