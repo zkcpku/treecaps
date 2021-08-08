@@ -18,7 +18,7 @@ c1000path = '/home/zhangkechi/workspace/data/codenet/Project_CodeNet_C++1000_spt
 c1400path = '/home/zhangkechi/workspace/data/codenet/Project_CodeNet_C++1400_spts/'
 javapath = '/home/zhangkechi/workspace/data/codenet/Project_CodeNet_Java250_spts/'
 
-datapath = javapath
+datapath = pythonpath
 edgepath = datapath+'edge.csv'
 labelpath = datapath+'graph-label.csv'
 nodepath = datapath+'node-feat.csv'
@@ -28,7 +28,7 @@ nodedfs = datapath+'node_dfs_order.csv'
 nodedepth = datapath+'node_depth.csv'
 
 
-def get_spt_dataset_lst(bidirection=False, virtual=False):
+def get_spt_dataset_dict(bidirection=False, virtual=False):
     numnodes = []
     numedges = []
     nodefeats = []
@@ -110,7 +110,8 @@ def get_spt_dataset_lst(bidirection=False, virtual=False):
             targets, sources = targets+sources, sources+targets
         targets, sources = torch.tensor(targets), torch.tensor(sources)
         #print(targets,sources)
-        g = dgl.graph((sources, targets))
+        # g = dgl.graph((sources, targets))
+        g = {'ndata':{}}
         graph_tokens = torch.tensor(
             token_ids[graph_nodestart:graph_nodestart+num_node])
         graph_rules = torch.tensor(
@@ -122,10 +123,10 @@ def get_spt_dataset_lst(bidirection=False, virtual=False):
         graph_dfss = torch.tensor(
             nodedfss[graph_nodestart:graph_nodestart+num_node])
 
-        g.ndata['token'] = graph_tokens
-        g.ndata['type'] = graph_rules
-        g.ndata['depth'] = graph_depths
-        g.ndata['dfs'] = graph_dfss
+        g['ndata']['token'] = graph_tokens
+        g['ndata']['type'] = graph_rules
+        g['ndata']['depth'] = graph_depths
+        g['ndata']['dfs'] = graph_dfss
         graph_nodestart += num_node
         graph_edgestart += num_edge
         all_graphdata.append([{'graph': g, "edge": graph_edge}, graph_label])
@@ -317,7 +318,7 @@ def dataset_convert(dataset):
     labels = []
     for e in tqdm(dataset):
         t = getTree(e)[0]
-        l = e[1]
+        l = str(e[1] + 1)
         d = {'tree': t, 'label': l}
         labels.append(l)
         output_dataset.append(d)
@@ -330,3 +331,31 @@ def dataset_convert(dataset):
 #     for e in tree['children']:
 #         num_children(e)
 # num_children(t)
+
+if __name__ == '__main__':
+    print(datapath)
+    trainset, devset, testset, token_vocabsize, type_vocabsize = get_spt_dataset()
+    
+    print("token_vocabsize, type_vocabsize:",(token_vocabsize, type_vocabsize))
+
+    trees, labels = dataset_convert(trainset)
+    data = (trees, labels)
+    save_path = '/home/zhangkechi/workspace/treecaps-master/codenet_data/Project_CodeNet_Python800_spts/train.pkl'
+    with open(save_path, 'wb') as file_handler:
+        pickle.dump(data, file_handler, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+    trees, labels = dataset_convert(devset)
+    data = (trees, labels)
+    save_path = '/home/zhangkechi/workspace/treecaps-master/codenet_data/Project_CodeNet_Python800_spts/dev.pkl'
+    with open(save_path, 'wb') as file_handler:
+        pickle.dump(data, file_handler, protocol=pickle.HIGHEST_PROTOCOL)
+
+    trees, labels = dataset_convert(testset)
+    data = (trees, labels)
+    save_path = '/home/zhangkechi/workspace/treecaps-master/codenet_data/Project_CodeNet_Python800_spts/test.pkl'
+    with open(save_path, 'wb') as file_handler:
+        pickle.dump(data, file_handler, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+

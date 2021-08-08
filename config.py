@@ -7,6 +7,7 @@ class Config:
         self.modelpath = "model/Java250_8_8_concat"
         self.lr = 0.001
 
+        # token_vocabsize, type_vocabsize = (115, 107)
         self.embedding_lookup_lens = (115, 107)
 
 myconfig = Config()
